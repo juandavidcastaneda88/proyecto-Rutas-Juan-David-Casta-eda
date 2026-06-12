@@ -5,7 +5,6 @@ Aplicación frontend profesional construida **exclusivamente con HTML5, CSS3 y J
 ## Cómo ejecutar
 
 1. Abre `index.html` directamente en el navegador, o sirve la carpeta con un servidor local (Live Server, `npx serve`, `python -m http.server`).
-2. El clima usa la API gratuita de [Open-Meteo](https://open-meteo.com/en/docs), que **no requiere API key**: la app muestra clima real de inmediato.
 
 La primera ejecución carga datos de ejemplo. Todo cambio se persiste en **LocalStorage** y sobrevive a recargas de página.
 
