@@ -1,0 +1,122 @@
+/* ==========================================================================
+   responsive.css — Adaptación a 3 breakpoints
+   Desktop:  min-width 1200px (estilos base)
+   Tablet:   768px – 1199px
+   Mobile:   max-width 767px
+   ========================================================================== */
+
+/* ----------------------------- TABLET ----------------------------------- */
+@media (max-width: 1199px) {
+  :root {
+    --sidebar-width: 210px;
+  }
+
+  .grid-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar__weather {
+    display: none;
+  }
+}
+
+/* ----------------------------- MOBILE ----------------------------------- */
+@media (max-width: 767px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  /* Sidebar se convierte en panel deslizante */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(280px, 80vw);
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  /* Fondo oscuro al abrir el menú móvil */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-sidebar) - 1);
+    background: var(--color-overlay);
+    animation: fadeIn var(--transition-fast);
+  }
+
+  .sidebar-backdrop[hidden] {
+    display: none;
+  }
+
+  .topbar {
+    padding: 0 var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .topbar__menu-btn {
+    display: inline-flex;
+  }
+
+  .topbar__avatar {
+    display: none;
+  }
+
+  .content {
+    padding: var(--space-4);
+  }
+
+  .grid-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-routes {
+    grid-template-columns: 1fr;
+  }
+
+  .form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .view__title {
+    font-size: var(--font-size-xl);
+  }
+
+  .filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters-bar__group {
+    justify-content: space-between;
+  }
+
+  .toast-container {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    max-width: none;
+  }
+
+  .modal__footer {
+    flex-direction: column-reverse;
+  }
+
+  .modal__footer .btn {
+    width: 100%;
+  }
+}

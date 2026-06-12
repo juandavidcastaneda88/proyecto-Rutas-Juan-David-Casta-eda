@@ -1,0 +1,77 @@
+/* ==========================================================================
+   variables.css — Design Tokens del sistema "Rutas Seguras Kids"
+   Paleta, tipografía, espaciados, sombras, radios y transiciones.
+   Todas las demás hojas de estilo consumen estas variables.
+   ========================================================================== */
+
+:root {
+  /* ----- Paleta principal (requerimiento del proyecto) ----- */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-light: #dbeafe;
+  --color-secondary: #0ea5e9;
+  --color-secondary-light: #e0f2fe;
+  --color-success: #10b981;
+  --color-success-light: #d1fae5;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-light: #fee2e2;
+  --color-background: #f8fafc;
+
+  /* ----- Neutros ----- */
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-soft: #94a3b8;
+  --color-sidebar: #0f172a;
+  --color-sidebar-text: #cbd5e1;
+  --color-overlay: rgba(15, 23, 42, 0.55);
+
+  /* ----- Tipografía ----- */
+  --font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+  --font-size-2xl: 1.75rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height: 1.5;
+
+  /* ----- Espaciado (escala de 4px) ----- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  /* ----- Radios ----- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* ----- Sombras (Material Design inspirado) ----- */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 10px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.16);
+
+  /* ----- Transiciones ----- */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+
+  /* ----- Layout ----- */
+  --sidebar-width: 250px;
+  --topbar-height: 64px;
+  --z-sidebar: 40;
+  --z-modal: 100;
+  --z-toast: 200;
+}
