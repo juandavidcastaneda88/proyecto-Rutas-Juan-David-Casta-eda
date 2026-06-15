@@ -53,7 +53,7 @@ La primera ejecución carga datos de ejemplo. Todo cambio se persiste en **Local
 - **📊 Panel de control** — estadísticas, rutas recientes y widget de clima con botón "Ver clima completo".
 - **🚌 Rutas escolares** — CRUD completo con búsqueda, filtros por estado/ciudad, ordenamiento y modal de detalle (incluye clima de la ciudad y acceso a la vista Clima).
 - **🎓 Estudiantes** — registro, edición, eliminación y asignación a rutas con validación de capacidad.
-- **⛅ Clima** — weather app en tiempo real heredada de la versión anterior: búsqueda por ciudad, ubicación actual (geolocalización), tarjeta "Ahora", pronóstico 5 días, hoy por horas, calidad del aire (AQI con PM2.5, PM10, SO₂, CO, NO, NO₂, NH₃, O₃), amanecer/atardecer, humedad, presión, visibilidad, viento y sensación térmica.
+- **⛅ Clima** — weather app en tiempo real heredada de la versión anterior: búsqueda por ciudad, ubicación actual https://open-meteo.com/ (geolocalización), tarjeta "Ahora", pronóstico 5 días, hoy por horas, calidad del aire (AQI con PM2.5, PM10, SO₂, CO, NO, NO₂, NH₃, O₃), amanecer/atardecer, humedad, presión, visibilidad, viento y sensación térmica.
 
 ## Características técnicas demostradas
 
