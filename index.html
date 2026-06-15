@@ -215,7 +215,7 @@
             </div>
           </div>
 
-          <!-- Contenedor de tarjetas <route-card> (Web Component) -->
+          <!-- Contenedor de las tarjetas de rutas -->
           <div class="grid-routes" id="routes-container" aria-live="polite"></div>
 
           <!-- Estado vacío -->
@@ -545,259 +545,18 @@
     </div>
   </div>
 
-  <!-- ================= MODAL: CONFIRMACIÓN ================= -->
-  <div class="modal-overlay" id="modal-confirm" hidden>
-    <div class="modal modal--small" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
-      <header class="modal__header">
-        <h2 class="modal__title" id="confirm-title">¿Estás seguro?</h2>
-      </header>
-      <div class="modal__body">
-        <p id="confirm-message">Esta acción no se puede deshacer.</p>
-      </div>
-      <footer class="modal__footer">
-        <button class="btn btn--secondary" type="button" id="confirm-cancel">Cancelar</button>
-        <button class="btn btn--danger" type="button" id="confirm-accept">Sí, continuar</button>
-      </footer>
-    </div>
-  </div>
 
   <!-- Contenedor de notificaciones toast -->
   <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="false"></div>
 
-  <!-- ================= TEMPLATES ================= -->
 
-  <!-- Template de fila de estudiante (clonado por students.js) -->
-  <template id="template-student-row">
-    <tr>
-      <td data-cell="name"></td>
-      <td data-cell="age"></td>
-      <td data-cell="grade"></td>
-      <td data-cell="parent"></td>
-      <td data-cell="phone"></td>
-      <td data-cell="route"></td>
-      <td>
-        <div class="data-table__actions">
-          <button class="btn btn--ghost" type="button" data-action="edit-student" title="Editar estudiante">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-            <span class="visually-hidden">Editar</span>
-          </button>
-          <button class="btn btn--ghost" type="button" data-action="delete-student" title="Eliminar estudiante">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-            <span class="visually-hidden">Eliminar</span>
-          </button>
-        </div>
-      </td>
-    </tr>
-  </template>
 
-  <!-- Template del Web Component <route-card> (clonado dentro del Shadow DOM) -->
-  <template id="template-route-card">
-    <style>
-      /* Estilos encapsulados (tema oscuro): solo afectan al Shadow DOM */
-      :host {
-        display: block;
-        font-family: "Outfit", "Segoe UI", system-ui, sans-serif;
-      }
-
-      .card {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        height: 100%;
-        padding: 1.25rem;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.09);
-        border-radius: 20px;
-        backdrop-filter: blur(10px);
-        transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-      }
-
-      .card:hover {
-        transform: translateY(-3px);
-        border-color: rgba(34, 211, 238, 0.45);
-        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
-      }
-
-      .head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.5rem;
-      }
-
-      .name {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #e7ecf6;
-        margin: 0;
-      }
-
-      .badge {
-        padding: 2px 10px;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        white-space: nowrap;
-        border: 1px solid transparent;
-      }
-
-      .badge.active {
-        background: rgba(52, 211, 153, 0.15);
-        border-color: rgba(52, 211, 153, 0.5);
-        color: #6ee7b7;
-      }
-
-      .badge.inactive {
-        background: rgba(244, 63, 94, 0.16);
-        border-color: rgba(244, 63, 94, 0.5);
-        color: #fda4af;
-      }
-
-      .meta {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem 1rem;
-        margin: 0;
-      }
-
-      .meta div { font-size: 0.85rem; color: #e7ecf6; }
-
-      .meta dt {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #97a3c2;
-      }
-
-      .meta dd {
-        margin: 0;
-        font-weight: 600;
-      }
-
-      .occupancy {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-      }
-
-      .occupancy__label {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.78rem;
-        color: #97a3c2;
-      }
-
-      .bar {
-        height: 8px;
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 999px;
-        overflow: hidden;
-      }
-
-      .bar__fill {
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(135deg, #6366f1, #22d3ee);
-        border-radius: 999px;
-        transition: width 250ms ease;
-      }
-
-      .bar__fill.warn { background: #fbbf24; }
-      .bar__fill.full { background: #f43f5e; }
-
-      .actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: auto;
-        padding-top: 0.5rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.09);
-      }
-
-      button {
-        flex: 1;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.35rem;
-        padding: 0.5rem 0.6rem;
-        border: none;
-        border-radius: 10px;
-        font: inherit;
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 150ms ease, filter 150ms ease;
-      }
-
-      button:focus-visible {
-        outline: 3px solid #22d3ee;
-        outline-offset: 2px;
-      }
-
-      .btn-view {
-        background: linear-gradient(135deg, #6366f1, #22d3ee);
-        color: #fff;
-      }
-      .btn-view:hover { filter: brightness(1.12); }
-
-      .btn-edit { background: rgba(255, 255, 255, 0.08); color: #e7ecf6; }
-      .btn-edit:hover { background: rgba(255, 255, 255, 0.14); }
-
-      .btn-delete { background: rgba(244, 63, 94, 0.16); color: #fda4af; }
-      .btn-delete:hover { background: rgba(244, 63, 94, 0.3); }
-    </style>
-
-    <article class="card">
-      <div class="head">
-        <h3 class="name" data-ref="name"></h3>
-        <span class="badge" data-ref="status"></span>
-      </div>
-
-      <dl class="meta">
-        <div>
-          <dt>Conductor</dt>
-          <dd data-ref="driver"></dd>
-        </div>
-        <div>
-          <dt>Placa</dt>
-          <dd data-ref="plate"></dd>
-        </div>
-        <div>
-          <dt>Salida</dt>
-          <dd data-ref="time"></dd>
-        </div>
-        <div>
-          <dt>Ciudad</dt>
-          <dd data-ref="city"></dd>
-        </div>
-      </dl>
-
-      <div class="occupancy">
-        <span class="occupancy__label">
-          <span>Ocupación</span>
-          <span data-ref="occupancy-text"></span>
-        </span>
-        <div class="bar" role="progressbar" data-ref="bar" aria-valuemin="0">
-          <div class="bar__fill" data-ref="bar-fill"></div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button type="button" class="btn-view" data-ref="view">Ver detalle</button>
-        <button type="button" class="btn-edit" data-ref="edit">Editar</button>
-        <button type="button" class="btn-delete" data-ref="delete">Eliminar</button>
-      </div>
-    </article>
-  </template>
-
-  <!-- Scripts (el orden importa: config → utilidades → API → componente → módulos → app) -->
+  <!-- Scripts (el orden importa: config → datos → utilidades → API → módulos → app) -->
   <script src="config.js"></script>
-  <script src="custom-events.js"></script>
   <script src="storage.js"></script>
   <script src="validation.js"></script>
   <script src="ui.js"></script>
   <script src="api.js"></script>
-  <script src="route-card.js"></script>
   <script src="routes.js"></script>
   <script src="students.js"></script>
   <script src="weather.js"></script>

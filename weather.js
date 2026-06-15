@@ -1,207 +1,201 @@
 /**
- * weather.js — Vista "Clima" (weather app en tiempo real).
+ * weather.js — Vista "Clima".
  *
- * Heredada de la versión anterior del proyecto y adaptada a la
- * arquitectura nueva. Replica la experiencia de una plataforma de clima:
- *  - Búsqueda por ciudad y por ubicación actual (geolocalización).
- *  - "Ahora": temperatura, descripción, fecha y ciudad.
- *  - Pronóstico 5 días y "Hoy por horas" (API /forecast).
- *  - Destacados: calidad del aire (AQI), amanecer/atardecer,
- *    humedad, presión, visibilidad, viento y sensación térmica.
- *
- * Se comunica con el resto de la app mediante el CustomEvent
- * "clima:buscar" (lo disparan el dashboard y el detalle de una ruta).
+ * Permite buscar el clima por ciudad o por ubicación actual, y muestra:
+ * el clima de ahora, el pronóstico de 5 días, las próximas horas y la
+ * calidad del aire. Usa las funciones de api.js (fetch + async/await).
  */
 "use strict";
 
-const WeatherView = (() => {
-  const $ = (id) => document.getElementById(id);
+// Clases de color para el nivel de calidad del aire (1 a 5).
+const CLASES_AIRE = ["", "aqi--1", "aqi--2", "aqi--3", "aqi--4", "aqi--5"];
 
-  const AQI_CLASES = ["", "aqi--1", "aqi--2", "aqi--3", "aqi--4", "aqi--5"];
-  const AQI_NOMBRES = {
-    pm2_5: "PM2.5", pm10: "PM10", so2: "SO₂", co: "CO",
-    no: "NO", no2: "NO₂", nh3: "NH₃", o3: "O₃",
-  };
+// Nombres bonitos de los contaminantes.
+const NOMBRES_AIRE = {
+  pm2_5: "PM2.5",
+  pm10: "PM10",
+  so2: "SO₂",
+  co: "CO",
+  no2: "NO₂",
+  o3: "O₃",
+};
 
-  function setCargando(activo) {
-    $("weather-loading").classList.toggle("hidden", !activo);
-    $("weather-layout").classList.toggle("weather-layout--dim", activo);
+/** Muestra u oculta el indicador de carga de la vista Clima. */
+function ponerCargandoClima(activo) {
+  document.getElementById("weather-loading").classList.toggle("hidden", !activo);
+  document.getElementById("weather-layout").classList.toggle("weather-layout--dim", activo);
+}
+
+/* ===================== Pintar cada sección ===================== */
+
+/** Pinta la tarjeta "Ahora" con el clima actual. */
+function pintarAhora(clima) {
+  document.getElementById("w-temp").textContent = clima.temp + "°C";
+
+  const icono = document.getElementById("w-icon");
+  icono.src = clima.icono;
+  icono.alt = clima.descripcion;
+  icono.hidden = false;
+
+  document.getElementById("w-desc").textContent = clima.descripcion;
+  document.getElementById("w-fecha").textContent = clima.fecha.toLocaleDateString("es-CO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  let nombreLugar = clima.ciudad;
+  if (clima.pais) nombreLugar += ", " + clima.pais;
+  document.getElementById("w-ciudad").textContent = nombreLugar;
+
+  document.getElementById("w-humedad").textContent = clima.humedad + "%";
+  document.getElementById("w-presion").textContent = clima.presion + " hPa";
+  document.getElementById("w-visibilidad").textContent = clima.visibilidad + " km";
+  document.getElementById("w-viento").textContent = clima.viento + " m/s";
+  document.getElementById("w-sensacion").textContent = clima.sensacion + "°C";
+  document.getElementById("w-amanecer").textContent = clima.amanecer;
+  document.getElementById("w-atardecer").textContent = clima.atardecer;
+}
+
+/** Pinta el pronóstico de 5 días y las próximas 8 horas. */
+function pintarPronostico(pronostico) {
+  // --- Próximos 5 días ---
+  let htmlDias = "";
+  for (const dia of pronostico.dias) {
+    htmlDias += `
+      <li>
+        <div class="w-forecast__left">
+          <img src="${dia.icono}" alt="${escaparHTML(dia.desc)}" title="${escaparHTML(dia.desc)}" />
+          <strong>${dia.temp}°C</strong>
+        </div>
+        <span class="w-forecast__date">${dia.fecha}</span>
+        <span class="w-forecast__day">${dia.dia}</span>
+      </li>
+    `;
   }
+  document.getElementById("w-forecast").innerHTML = htmlDias;
 
-  /* ===================== Render ===================== */
-
-  function pintarAhora(c) {
-    $("w-temp").textContent = `${c.temp}°C`;
-    const icono = $("w-icon");
-    icono.src = c.icono;
-    icono.alt = c.descripcion;
-    icono.hidden = false;
-    $("w-desc").textContent = c.descripcion;
-    $("w-fecha").textContent = c.fecha.toLocaleDateString("es-CO", {
-      weekday: "long", day: "numeric", month: "long", year: "numeric",
-    });
-    $("w-ciudad").textContent = `${c.ciudad}${c.pais && c.pais !== "—" ? ", " + c.pais : ""}`;
-
-    $("w-humedad").textContent = `${c.humedad}%`;
-    $("w-presion").textContent = `${c.presion} hPa`;
-    $("w-visibilidad").textContent = `${c.visibilidad} km`;
-    $("w-viento").textContent = `${c.viento} m/s`;
-    $("w-sensacion").textContent = `${c.sensacion}°C`;
-    $("w-amanecer").textContent = c.amanecer;
-    $("w-atardecer").textContent = c.atardecer;
+  // --- Hoy por horas ---
+  let htmlHoras = "";
+  for (const hora of pronostico.horas) {
+    htmlHoras += `
+      <div class="w-hour">
+        <span class="w-hour__time">${hora.hora}</span>
+        <img src="${hora.icono}" alt="${escaparHTML(hora.desc)}" title="${escaparHTML(hora.desc)}" />
+        <strong>${hora.temp}°</strong>
+      </div>
+    `;
   }
+  document.getElementById("w-hourly").innerHTML = htmlHoras;
+}
 
-  function pintarPronostico(p) {
-    const lista = $("w-forecast");
-    const horario = $("w-hourly");
-    lista.innerHTML = "";
-    horario.innerHTML = "";
-    if (p.error) return;
+/** Pinta la calidad del aire (insignia + contaminantes). */
+function pintarAire(aire) {
+  const badge = document.getElementById("w-aqi-badge");
+  const grid = document.getElementById("w-aqi-grid");
 
-    // Pronóstico 5 días (creación dinámica de nodos)
-    p.dias.forEach((d) => {
-      const li = document.createElement("li");
-
-      const izq = document.createElement("div");
-      izq.className = "w-forecast__left";
-      const img = document.createElement("img");
-      img.src = d.icono;
-      img.alt = d.desc;
-      img.title = d.desc;
-      const temp = document.createElement("strong");
-      temp.textContent = `${d.temp}°C`;
-      izq.append(img, temp);
-
-      const fecha = document.createElement("span");
-      fecha.className = "w-forecast__date";
-      fecha.textContent = d.fecha;
-
-      const dia = document.createElement("span");
-      dia.className = "w-forecast__day";
-      dia.textContent = d.dia;
-
-      li.append(izq, fecha, dia);
-      lista.appendChild(li);
-    });
-
-    // Hoy por horas
-    p.horas.forEach((h) => {
-      const celda = document.createElement("div");
-      celda.className = "w-hour";
-
-      const hora = document.createElement("span");
-      hora.className = "w-hour__time";
-      hora.textContent = h.hora;
-
-      const img = document.createElement("img");
-      img.src = h.icono;
-      img.alt = h.desc;
-      img.title = h.desc;
-
-      const temp = document.createElement("strong");
-      temp.textContent = `${h.temp}°`;
-
-      celda.append(hora, img, temp);
-      horario.appendChild(celda);
-    });
-  }
-
-  function pintarAire(a) {
-    const badge = $("w-aqi-badge");
-    const grid = $("w-aqi-grid");
+  if (aire.error) {
+    badge.textContent = "—";
+    badge.className = "aqi-badge";
     grid.innerHTML = "";
-    if (a.error) {
-      badge.textContent = "—";
-      badge.className = "aqi-badge";
+    return;
+  }
+
+  badge.textContent = ETIQUETAS_AIRE[aire.indice];
+  badge.className = "aqi-badge " + CLASES_AIRE[aire.indice];
+
+  let html = "";
+  for (const clave in aire.componentes) {
+    const valor = aire.componentes[clave];
+    const texto = valor === null || valor === undefined ? "—" : valor;
+    html += `
+      <div class="aqi-cell">
+        <small>${NOMBRES_AIRE[clave] || clave}</small>
+        <strong>${texto}</strong>
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+}
+
+/* ===================== Carga del clima ===================== */
+
+/**
+ * Carga todo el clima de la vista. Acepta { q: "ciudad" } o { lat, lon }.
+ */
+async function cargarClima(opciones) {
+  ponerCargandoClima(true);
+
+  // 1. Clima actual.
+  const clima = await obtenerClimaCompleto(opciones);
+  if (clima.error) {
+    ponerCargandoClima(false);
+    mostrarToast(clima.error, "error");
+    return;
+  }
+  pintarAhora(clima);
+
+  // 2. Pronóstico (se arma con los datos que ya entregó la API).
+  const pronostico = armarPronostico(clima.datosCompletos);
+  pintarPronostico(pronostico);
+
+  // 3. Calidad del aire.
+  const aire = await obtenerCalidadAire(clima.coord.lat, clima.coord.lon);
+  pintarAire(aire);
+
+  ponerCargandoClima(false);
+
+  // Recordar la ciudad para la próxima visita.
+  document.getElementById("weather-city").value = clima.ciudad;
+  localStorage.setItem(CLAVE_ULTIMA_CIUDAD, clima.ciudad);
+}
+
+/**
+ * Abre la vista Clima mostrando una ciudad específica.
+ * La usan el dashboard y el detalle de una ruta.
+ */
+function abrirVistaClimaConCiudad(ciudad) {
+  cerrarTodosLosModales();
+  mostrarVista("clima");
+  document.getElementById("weather-city").value = ciudad;
+  cargarClima({ q: ciudad });
+}
+
+/* ===================== Inicialización ===================== */
+
+/** Conecta los eventos de la vista Clima (se llama una sola vez). */
+function iniciarClima() {
+  // Búsqueda por nombre de ciudad.
+  document.getElementById("weather-form").addEventListener("submit", function (evento) {
+    evento.preventDefault();
+    const ciudad = document.getElementById("weather-city").value.trim();
+    if (ciudad.length < 2) {
+      mostrarToast("Escribe el nombre de una ciudad (mínimo 2 letras).", "warning");
       return;
     }
+    cargarClima({ q: ciudad });
+  });
 
-    badge.textContent = AQI_ETIQUETAS[a.indice];
-    badge.className = `aqi-badge ${AQI_CLASES[a.indice]}`;
-
-    Object.entries(a.componentes).forEach(([clave, valor]) => {
-      const celda = document.createElement("div");
-      celda.className = "aqi-cell";
-
-      const nombre = document.createElement("small");
-      nombre.textContent = AQI_NOMBRES[clave] || clave;
-
-      const cifra = document.createElement("strong");
-      cifra.textContent = valor;
-
-      celda.append(nombre, cifra);
-      grid.appendChild(celda);
-    });
-  }
-
-  /* ============ Carga (asincronía con async/await) ============ */
-
-  async function cargarClima(opciones) {
-    setCargando(true);
-
-    const clima = await obtenerClimaCompleto(opciones);
-    if (clima.error) {
-      setCargando(false);
-      UI.toast(clima.error, "error");
+  // Búsqueda por ubicación actual (geolocalización del navegador).
+  document.getElementById("weather-location").addEventListener("click", function () {
+    if (!navigator.geolocation) {
+      mostrarToast("Tu navegador no soporta geolocalización.", "error");
       return;
     }
-
-    pintarAhora(clima);
-    $("weather-demo-note").classList.toggle("hidden", !clima.demo);
-
-    // Pronóstico y calidad del aire en paralelo (Promise.all)
-    const [pronostico, aire] = await Promise.all([
-      obtenerPronostico(clima.coord.lat, clima.coord.lon, clima.ciudad, clima.zonaHoraria),
-      obtenerCalidadAire(clima.coord.lat, clima.coord.lon, clima.ciudad),
-    ]);
-
-    pintarPronostico(pronostico);
-    pintarAire(aire);
-    setCargando(false);
-
-    $("weather-city").value = clima.ciudad;
-    localStorage.setItem(CONFIG.CITY_KEY, clima.ciudad);
-  }
-
-  /* ===================== Eventos ===================== */
-
-  function init() {
-    $("weather-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const ciudad = $("weather-city").value.trim();
-      if (ciudad.length < 2) {
-        UI.toast("Escribe el nombre de una ciudad (mínimo 2 letras).", "warning");
-        return;
+    ponerCargandoClima(true);
+    navigator.geolocation.getCurrentPosition(
+      function (posicion) {
+        cargarClima({ lat: posicion.coords.latitude, lon: posicion.coords.longitude });
+      },
+      function () {
+        mostrarToast("No se pudo obtener tu ubicación. Mostrando Bogotá.", "warning");
+        cargarClima({ q: "Bogotá" });
       }
-      cargarClima({ q: ciudad });
-    });
+    );
+  });
 
-    $("weather-location").addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        UI.toast("Tu navegador no soporta geolocalización.", "error");
-        return;
-      }
-      setCargando(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => cargarClima({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-        () => {
-          UI.toast("No se pudo obtener tu ubicación. Mostrando Bogotá.", "warning");
-          cargarClima({ q: "Bogotá" });
-        },
-        { timeout: 8000 }
-      );
-    });
-
-    // CustomEvent: otras partes de la app piden el clima de una ciudad.
-    AppEvents.on(AppEvents.EVENTS.WEATHER_SEARCH, (detail) => {
-      $("weather-city").value = detail.ciudad;
-      cargarClima({ q: detail.ciudad });
-    });
-
-    // Carga inicial: última ciudad consultada (persistida) o Bogotá.
-    const ultima = localStorage.getItem(CONFIG.CITY_KEY) || "Bogotá";
-    cargarClima({ q: ultima });
-  }
-
-  return { init, cargarClima };
-})();
+  // Carga inicial: la última ciudad consultada, o Bogotá.
+  const ultimaCiudad = localStorage.getItem(CLAVE_ULTIMA_CIUDAD) || "Bogotá";
+  cargarClima({ q: ultimaCiudad });
+}

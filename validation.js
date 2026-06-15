@@ -1,158 +1,153 @@
 /**
- * validation.js — Motor de validación de formularios en tiempo real.
+ * validation.js — Validación de los formularios.
  *
- * Reglas declarativas por campo + validación al escribir (input) y al
- * enviar (submit). Los mensajes se muestran junto al campo y se marcan
- * con aria-invalid para accesibilidad.
+ * Hay una función para validar el formulario de rutas y otra para el de
+ * estudiantes. Cada una revisa los campos con condiciones simples (if)
+ * y muestra el mensaje de error debajo del campo correspondiente.
  */
 "use strict";
 
-const Validation = (() => {
-  /* ----- Expresiones regulares reutilizables ----- */
-  const PATTERNS = Object.freeze({
-    // Nombres: letras (incluye tildes y ñ), espacios, apóstrofes y guiones.
-    NAME: /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü'’-]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñÜü'’-]+)*$/,
-    // Teléfonos colombianos: 7 a 10 dígitos, admite espacios y guiones.
-    PHONE: /^\d[\d\s-]{5,12}\d$/,
-    // Placas: 3 letras + separador opcional + 3 dígitos (ABC-123, ABC123).
-    PLATE: /^[A-Za-z]{3}[\s-]?\d{3}$/,
-    // Hora en formato 24h HH:MM.
-    TIME: /^([01]\d|2[0-3]):[0-5]\d$/,
+/* ----- Expresiones regulares (patrones de texto) ----- */
+
+// Solo letras (con tildes y ñ) y espacios.
+const PATRON_NOMBRE = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü ]+$/;
+
+// Teléfono: entre 7 y 10 dígitos.
+const PATRON_TELEFONO = /^\d{7,10}$/;
+
+// Placa: 3 letras + 3 números, con guion opcional. Ej: ABC-123 o ABC123.
+const PATRON_PLACA = /^[A-Za-z]{3}-?\d{3}$/;
+
+/**
+ * Escribe un mensaje de error debajo de un campo del formulario.
+ * Si el mensaje está vacío, el error desaparece.
+ */
+function mostrarErrorCampo(formulario, nombreCampo, mensaje) {
+  const campo = formulario.elements[nombreCampo];
+  const cajaError = campo.closest(".form-field").querySelector(".form-field__error");
+  cajaError.textContent = mensaje;
+  if (mensaje) campo.focus();
+}
+
+/** Borra todos los mensajes de error de un formulario. */
+function limpiarErrores(formulario) {
+  const errores = formulario.querySelectorAll(".form-field__error");
+  errores.forEach(function (caja) {
+    caja.textContent = "";
   });
+}
 
-  /* ----- Validadores atómicos (cada uno retorna mensaje o "") ----- */
-  const validators = {
-    required: (value) => (String(value).trim() === "" ? "Este campo es obligatorio." : ""),
-    minLength: (value, min) =>
-      String(value).trim().length < min ? `Debe tener mínimo ${min} caracteres.` : "",
-    maxLength: (value, max) =>
-      String(value).trim().length > max ? `Debe tener máximo ${max} caracteres.` : "",
-    name: (value) =>
-      PATTERNS.NAME.test(String(value).trim()) ? "" : "Solo se permiten letras y espacios.",
-    phone: (value) =>
-      PATTERNS.PHONE.test(String(value).trim()) ? "" : "Ingresa un teléfono válido (7 a 10 dígitos).",
-    plate: (value) =>
-      PATTERNS.PLATE.test(String(value).trim()) ? "" : "Formato de placa inválido. Ej: ABC-123.",
-    time: (value) => (PATTERNS.TIME.test(String(value)) ? "" : "Ingresa una hora válida."),
-    numberRange: (value, min, max) => {
-      const num = Number(value);
-      if (!Number.isFinite(num)) return "Ingresa un número válido.";
-      if (num < min || num > max) return `Debe estar entre ${min} y ${max}.`;
-      return "";
-    },
-  };
+/**
+ * Valida el formulario de rutas campo por campo.
+ * @returns {boolean} true si todo está bien, false si hay algún error.
+ */
+function validarFormularioRuta(formulario) {
+  limpiarErrores(formulario);
+  let valido = true;
 
-  /**
-   * Esquemas de validación por formulario.
-   * Cada campo define una lista de reglas [nombreValidador, ...argumentos].
-   */
-  const SCHEMAS = Object.freeze({
-    route: {
-      name: [["required"], ["minLength", 3], ["maxLength", 40]],
-      driver: [["required"], ["minLength", 3], ["maxLength", 50], ["name"]],
-      plate: [["required"], ["plate"]],
-      departureTime: [["required"], ["time"]],
-      city: [["required"]],
-      capacity: [["required"], ["numberRange", 1, 60]],
-    },
-    student: {
-      fullName: [["required"], ["minLength", 3], ["maxLength", 60], ["name"]],
-      age: [["required"], ["numberRange", 3, 18]],
-      grade: [["required"]],
-      parentName: [["required"], ["minLength", 3], ["maxLength", 50], ["name"]],
-      phone: [["required"], ["phone"]],
-    },
-  });
-
-  /**
-   * Valida un único valor contra una lista de reglas.
-   * @returns {string} Primer mensaje de error encontrado, o "" si es válido.
-   */
-  function validateValue(value, rules) {
-    for (const [ruleName, ...args] of rules) {
-      const message = validators[ruleName](value, ...args);
-      if (message) return message;
-    }
-    return "";
+  const nombre = formulario.elements.name.value.trim();
+  if (nombre === "") {
+    mostrarErrorCampo(formulario, "name", "Este campo es obligatorio.");
+    valido = false;
+  } else if (nombre.length < 3) {
+    mostrarErrorCampo(formulario, "name", "Debe tener mínimo 3 caracteres.");
+    valido = false;
   }
 
-  /**
-   * Pinta el estado visual y accesible de un campo.
-   * @param {HTMLElement} input - El input/select validado.
-   * @param {string} message - Mensaje de error ("" si es válido).
-   */
-  function renderFieldState(input, message) {
-    const field = input.closest(".form-field");
-    const errorBox = field ? field.querySelector(".form-field__error") : null;
-
-    input.setAttribute("aria-invalid", message ? "true" : "false");
-    if (field) field.classList.toggle("form-field--valid", !message && input.value !== "");
-    if (errorBox) errorBox.textContent = message;
+  const conductor = formulario.elements.driver.value.trim();
+  if (conductor === "") {
+    mostrarErrorCampo(formulario, "driver", "Este campo es obligatorio.");
+    valido = false;
+  } else if (!PATRON_NOMBRE.test(conductor)) {
+    mostrarErrorCampo(formulario, "driver", "Solo se permiten letras y espacios.");
+    valido = false;
   }
 
-  /**
-   * Valida un formulario completo según su esquema.
-   * @param {HTMLFormElement} form
-   * @param {string} schemaName - Clave dentro de SCHEMAS ("route" | "student").
-   * @returns {boolean} true si todo el formulario es válido.
-   */
-  function validateForm(form, schemaName) {
-    const schema = SCHEMAS[schemaName];
-    let isValid = true;
-    let firstInvalid = null;
-
-    for (const fieldName of Object.keys(schema)) {
-      const input = form.elements[fieldName];
-      if (!input) continue;
-
-      const message = validateValue(input.value, schema[fieldName]);
-      renderFieldState(input, message);
-
-      if (message && isValid) {
-        isValid = false;
-        firstInvalid = input;
-      } else if (message) {
-        isValid = false;
-      }
-    }
-
-    // Accesibilidad: enfocar el primer campo con error.
-    if (firstInvalid) firstInvalid.focus();
-    return isValid;
+  const placa = formulario.elements.plate.value.trim();
+  if (placa === "") {
+    mostrarErrorCampo(formulario, "plate", "Este campo es obligatorio.");
+    valido = false;
+  } else if (!PATRON_PLACA.test(placa)) {
+    mostrarErrorCampo(formulario, "plate", "Formato de placa inválido. Ej: ABC-123.");
+    valido = false;
   }
 
-  /**
-   * Activa la validación EN TIEMPO REAL de un formulario:
-   * cada campo se valida mientras el usuario escribe (evento "input")
-   * usando delegación de eventos sobre el propio formulario.
-   */
-  function attachLiveValidation(form, schemaName) {
-    const schema = SCHEMAS[schemaName];
-
-    form.addEventListener("input", (event) => {
-      const input = event.target;
-      const rules = schema[input.name];
-      if (!rules) return;
-      renderFieldState(input, validateValue(input.value, rules));
-    });
+  const hora = formulario.elements.departureTime.value;
+  if (hora === "") {
+    mostrarErrorCampo(formulario, "departureTime", "Ingresa una hora válida.");
+    valido = false;
   }
 
-  /** Limpia todos los estados de validación de un formulario. */
-  function resetFormState(form) {
-    form.querySelectorAll("[aria-invalid]").forEach((input) => input.removeAttribute("aria-invalid"));
-    form.querySelectorAll(".form-field--valid").forEach((el) => el.classList.remove("form-field--valid"));
-    form.querySelectorAll(".form-field__error").forEach((el) => (el.textContent = ""));
+  const ciudad = formulario.elements.city.value;
+  if (ciudad === "") {
+    mostrarErrorCampo(formulario, "city", "Selecciona una ciudad.");
+    valido = false;
   }
 
-  /**
-   * Muestra un error de negocio (ej: duplicados, capacidad) en un campo puntual.
-   */
-  function showFieldError(form, fieldName, message) {
-    const input = form.elements[fieldName];
-    if (!input) return;
-    renderFieldState(input, message);
-    input.focus();
+  const capacidad = Number(formulario.elements.capacity.value);
+  if (formulario.elements.capacity.value === "") {
+    mostrarErrorCampo(formulario, "capacity", "Este campo es obligatorio.");
+    valido = false;
+  } else if (isNaN(capacidad) || capacidad < 1 || capacidad > 60) {
+    mostrarErrorCampo(formulario, "capacity", "Debe estar entre 1 y 60.");
+    valido = false;
   }
 
-  return { validateForm, attachLiveValidation, resetFormState, showFieldError, PATTERNS };
-})();
+  return valido;
+}
+
+/**
+ * Valida el formulario de estudiantes campo por campo.
+ * @returns {boolean} true si todo está bien, false si hay algún error.
+ */
+function validarFormularioEstudiante(formulario) {
+  limpiarErrores(formulario);
+  let valido = true;
+
+  const nombre = formulario.elements.fullName.value.trim();
+  if (nombre === "") {
+    mostrarErrorCampo(formulario, "fullName", "Este campo es obligatorio.");
+    valido = false;
+  } else if (nombre.length < 3) {
+    mostrarErrorCampo(formulario, "fullName", "Debe tener mínimo 3 caracteres.");
+    valido = false;
+  } else if (!PATRON_NOMBRE.test(nombre)) {
+    mostrarErrorCampo(formulario, "fullName", "Solo se permiten letras y espacios.");
+    valido = false;
+  }
+
+  const edad = Number(formulario.elements.age.value);
+  if (formulario.elements.age.value === "") {
+    mostrarErrorCampo(formulario, "age", "Este campo es obligatorio.");
+    valido = false;
+  } else if (isNaN(edad) || edad < 3 || edad > 18) {
+    mostrarErrorCampo(formulario, "age", "Debe estar entre 3 y 18.");
+    valido = false;
+  }
+
+  const grado = formulario.elements.grade.value;
+  if (grado === "") {
+    mostrarErrorCampo(formulario, "grade", "Selecciona un grado.");
+    valido = false;
+  }
+
+  const acudiente = formulario.elements.parentName.value.trim();
+  if (acudiente === "") {
+    mostrarErrorCampo(formulario, "parentName", "Este campo es obligatorio.");
+    valido = false;
+  } else if (!PATRON_NOMBRE.test(acudiente)) {
+    mostrarErrorCampo(formulario, "parentName", "Solo se permiten letras y espacios.");
+    valido = false;
+  }
+
+  const telefono = formulario.elements.phone.value.trim();
+  if (telefono === "") {
+    mostrarErrorCampo(formulario, "phone", "Este campo es obligatorio.");
+    valido = false;
+  } else if (!PATRON_TELEFONO.test(telefono)) {
+    mostrarErrorCampo(formulario, "phone", "Ingresa un teléfono válido (7 a 10 dígitos).");
+    valido = false;
+  }
+
+  return valido;
+}

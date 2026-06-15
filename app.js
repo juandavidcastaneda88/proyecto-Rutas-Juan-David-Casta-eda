@@ -1,332 +1,325 @@
 /**
- * app.js — Punto de entrada y orquestador de la aplicación.
+ * app.js — Punto de entrada de la aplicación.
  *
- * Responsabilidades:
- *  - Cargar el estado desde LocalStorage (con datos semilla la 1ª vez).
- *  - Navegación entre vistas (dashboard / rutas / estudiantes).
- *  - Búsqueda global en tiempo real (rutas, conductores y estudiantes).
- *  - Dashboard: contadores, rutas recientes y widget de clima.
- *  - Menú móvil, cierre de modales y atajos de teclado.
+ * Se encarga de:
+ *  - Cargar los datos guardados al abrir la página.
+ *  - La navegación entre vistas (dashboard / rutas / estudiantes / clima).
+ *  - El dashboard: contadores, rutas recientes y widget de clima.
+ *  - La búsqueda global, el menú móvil y el cierre de modales.
  */
 "use strict";
 
-const App = (() => {
-  const DEFAULT_CITY = "Bogotá";
+const CIUDAD_POR_DEFECTO = "Bogotá";
 
-  /* ==================== Navegación entre vistas ==================== */
+/* ==================== Navegación entre vistas ==================== */
 
-  /**
-   * Muestra una vista y oculta las demás, actualizando el estado
-   * aria-current de la navegación (accesibilidad).
-   * @param {"dashboard"|"routes"|"students"} viewName
-   */
-  function showView(viewName) {
-    const views = {
-      dashboard: document.getElementById("view-dashboard"),
-      routes: document.getElementById("view-routes"),
-      students: document.getElementById("view-students"),
-      clima: document.getElementById("view-clima"),
-    };
+/** Muestra una vista (dashboard, routes, students o clima) y oculta las demás. */
+function mostrarVista(nombreVista) {
+  const vistas = ["dashboard", "routes", "students", "clima"];
 
-    for (const [name, section] of Object.entries(views)) {
-      section.hidden = name !== viewName;
+  for (const nombre of vistas) {
+    const seccion = document.getElementById("view-" + nombre);
+    seccion.hidden = nombre !== nombreVista;
+  }
+
+  // Marcar el enlace activo en el menú lateral (accesibilidad).
+  const enlaces = document.querySelectorAll(".sidebar__link");
+  enlaces.forEach(function (enlace) {
+    if (enlace.dataset.view === nombreVista) {
+      enlace.setAttribute("aria-current", "page");
+    } else {
+      enlace.removeAttribute("aria-current");
     }
+  });
 
-    document.querySelectorAll(".sidebar__link").forEach((link) => {
-      if (link.dataset.view === viewName) {
-        link.setAttribute("aria-current", "page");
-      } else {
-        link.removeAttribute("aria-current");
-      }
-    });
+  cerrarMenuMovil();
+}
 
-    closeMobileMenu();
+/* ==================== Menú móvil ==================== */
+
+function abrirMenuMovil() {
+  document.getElementById("sidebar").classList.add("is-open");
+  document.getElementById("sidebar-backdrop").hidden = false;
+  document.getElementById("btn-menu").setAttribute("aria-expanded", "true");
+}
+
+function cerrarMenuMovil() {
+  document.getElementById("sidebar").classList.remove("is-open");
+  document.getElementById("sidebar-backdrop").hidden = true;
+  document.getElementById("btn-menu").setAttribute("aria-expanded", "false");
+}
+
+/* ==================== Dashboard ==================== */
+
+/** Actualiza los 4 contadores de estadísticas. */
+function pintarEstadisticas() {
+  const rutasActivas = rutas.filter(function (ruta) {
+    return ruta.active;
+  });
+  const estudiantesAsignados = estudiantes.filter(function (estudiante) {
+    return estudiante.routeId !== "";
+  });
+
+  document.getElementById("stat-routes").textContent = rutas.length;
+  document.getElementById("stat-active").textContent = rutasActivas.length;
+  document.getElementById("stat-students").textContent = estudiantes.length;
+  document.getElementById("stat-assigned").textContent = estudiantesAsignados.length;
+}
+
+/** Muestra las 4 rutas más recientes en el panel de control. */
+function pintarRutasRecientes() {
+  const contenedor = document.getElementById("recent-routes");
+
+  // Copiar la lista y ordenarla de la más nueva a la más vieja.
+  const recientes = [...rutas];
+  recientes.sort(function (a, b) {
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+  const primeras = recientes.slice(0, 4);
+
+  if (primeras.length === 0) {
+    contenedor.innerHTML = '<p class="u-text-muted u-text-sm">Aún no hay rutas registradas.</p>';
+    return;
   }
 
-  /* ==================== Menú móvil ==================== */
-
-  function openMobileMenu() {
-    document.getElementById("sidebar").classList.add("is-open");
-    document.getElementById("sidebar-backdrop").hidden = false;
-    document.getElementById("btn-menu").setAttribute("aria-expanded", "true");
-  }
-
-  function closeMobileMenu() {
-    document.getElementById("sidebar").classList.remove("is-open");
-    document.getElementById("sidebar-backdrop").hidden = true;
-    document.getElementById("btn-menu").setAttribute("aria-expanded", "false");
-  }
-
-  /* ==================== Dashboard ==================== */
-
-  /** Actualiza los contadores de estadísticas. */
-  function renderStats() {
-    const routes = AppState.routes;
-    const students = AppState.students;
-
-    document.getElementById("stat-routes").textContent = routes.length;
-    document.getElementById("stat-active").textContent = routes.filter((r) => r.active).length;
-    document.getElementById("stat-students").textContent = students.length;
-    document.getElementById("stat-assigned").textContent = students.filter(
-      (s) => s.routeId
-    ).length;
-  }
-
-  /** Lista las 4 rutas más recientes en el panel de control. */
-  function renderRecentRoutes() {
-    const container = document.getElementById("recent-routes");
-    const recent = [...AppState.routes]
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      .slice(0, 4);
-
-    if (!recent.length) {
-      container.innerHTML = '<p class="u-text-muted u-text-sm">Aún no hay rutas registradas.</p>';
-      return;
-    }
-
-    container.innerHTML = recent
-      .map((route) => {
-        const count = RoutesModule.studentsOfRoute(route.id).length;
-        return `
-          <button class="detail-students__item" type="button" data-open-route="${route.id}"
-                  style="width: 100%; border: none; cursor: pointer; text-align: left; font: inherit;"
-                  aria-label="Ver detalle de ${UI.escapeHTML(route.name)}">
-            <span>🚌 <strong>${UI.escapeHTML(route.name)}</strong> · ${UI.escapeHTML(route.driver)}</span>
-            <span class="u-text-muted">${UI.formatTime(route.departureTime)} · ${count}/${route.capacity} 🎒</span>
-          </button>
-        `;
-      })
-      .join("");
-  }
-
-  /**
-   * Renderiza la tarjeta de clima del dashboard usando la capa api.js
-   * (fetch + async/await contra Open-Meteo, sin API key).
-   */
-  async function renderDashboardWeather(city) {
-    const card = document.getElementById("weather-card");
-    UI.renderLoading(card, `Consultando el clima de ${city}…`);
-
-    const clima = await obtenerClimaCompleto({ q: city });
-    if (clima.error) {
-      card.innerHTML = `
-        <div class="empty-state" style="padding: 1.5rem;">
-          <p class="empty-state__title">No fue posible obtener el clima</p>
-          <p>${UI.escapeHTML(clima.error)}.</p>
-        </div>
-      `;
-      return;
-    }
-
-    const demoBadge = ""; // Open-Meteo no requiere API key: siempre datos reales.
-
-    card.innerHTML = `
-      <div class="weather-card__main">
-        <img src="${clima.icono}" alt="${UI.escapeHTML(clima.descripcion)}" style="width: 72px; height: 72px;" />
-        <div>
-          <p class="weather-card__temp">${clima.temp}°C</p>
-          <p class="weather-card__condition">${UI.escapeHTML(clima.descripcion)} · ${UI.escapeHTML(clima.ciudad)}</p>
-        </div>
-        ${demoBadge}
-      </div>
-      <div class="weather-card__details">
-        <div class="weather-card__detail">
-          <span class="weather-card__detail-label">Sensación térmica</span>
-          <strong>${clima.sensacion}°C</strong>
-        </div>
-        <div class="weather-card__detail">
-          <span class="weather-card__detail-label">Humedad</span>
-          <strong>${clima.humedad}%</strong>
-        </div>
-        <div class="weather-card__detail">
-          <span class="weather-card__detail-label">Viento</span>
-          <strong>${clima.viento} m/s</strong>
-        </div>
-        <div class="weather-card__detail">
-          <span class="weather-card__detail-label">Visibilidad</span>
-          <strong>${clima.visibilidad} km</strong>
-        </div>
-      </div>
+  let html = "";
+  for (const ruta of primeras) {
+    const asignados = estudiantesDeRuta(ruta.id).length;
+    html += `
+      <button class="detail-students__item" type="button" onclick="verDetalleRuta('${ruta.id}')"
+              style="width: 100%; border: none; cursor: pointer; text-align: left; font: inherit;"
+              aria-label="Ver detalle de ${escaparHTML(ruta.name)}">
+        <span>🚌 <strong>${escaparHTML(ruta.name)}</strong> · ${escaparHTML(ruta.driver)}</span>
+        <span class="u-text-muted">${formatearHora(ruta.departureTime)} · ${asignados}/${ruta.capacity} 🎒</span>
+      </button>
     `;
   }
+  contenedor.innerHTML = html;
+}
 
-  /** Actualiza el chip de clima de la barra superior. */
-  async function updateTopbarWeather(city) {
-    const chip = document.getElementById("topbar-weather");
-    const clima = await obtenerClimaCompleto({ q: city });
+/** Pinta la tarjeta de clima del dashboard. */
+async function pintarClimaDashboard(ciudad) {
+  const tarjeta = document.getElementById("weather-card");
+  mostrarCargando(tarjeta, "Consultando el clima de " + ciudad + "…");
 
-    if (clima.error) {
-      chip.innerHTML = `<span aria-hidden="true">⚠️</span><span>Clima no disponible</span>`;
-      return;
-    }
-    chip.innerHTML = `
-      <img src="${clima.icono.replace("@2x", "")}" alt="" style="width: 24px; height: 24px;" />
-      <span>${clima.temp}°C · ${UI.escapeHTML(clima.ciudad)}</span>
+  const clima = await obtenerClimaCompleto({ q: ciudad });
+  if (clima.error) {
+    tarjeta.innerHTML = `
+      <div class="empty-state" style="padding: 1.5rem;">
+        <p class="empty-state__title">No fue posible obtener el clima</p>
+        <p>${escaparHTML(clima.error)}.</p>
+      </div>
     `;
+    return;
   }
 
-  /** Configura el selector de ciudad del widget de clima del dashboard. */
-  function initWeatherWidget() {
-    const select = document.getElementById("weather-city-select");
-    select.innerHTML = "";
+  tarjeta.innerHTML = `
+    <div class="weather-card__main">
+      <img src="${clima.icono}" alt="${escaparHTML(clima.descripcion)}" style="width: 72px; height: 72px;" />
+      <div>
+        <p class="weather-card__temp">${clima.temp}°C</p>
+        <p class="weather-card__condition">${escaparHTML(clima.descripcion)} · ${escaparHTML(clima.ciudad)}</p>
+      </div>
+    </div>
+    <div class="weather-card__details">
+      <div class="weather-card__detail">
+        <span class="weather-card__detail-label">Sensación térmica</span>
+        <strong>${clima.sensacion}°C</strong>
+      </div>
+      <div class="weather-card__detail">
+        <span class="weather-card__detail-label">Humedad</span>
+        <strong>${clima.humedad}%</strong>
+      </div>
+      <div class="weather-card__detail">
+        <span class="weather-card__detail-label">Viento</span>
+        <strong>${clima.viento} m/s</strong>
+      </div>
+      <div class="weather-card__detail">
+        <span class="weather-card__detail-label">Visibilidad</span>
+        <strong>${clima.visibilidad} km</strong>
+      </div>
+    </div>
+  `;
+}
 
-    for (const city of StorageService.CITIES) {
-      const option = document.createElement("option");
-      option.value = city;
-      option.textContent = city;
-      select.appendChild(option);
+/** Actualiza el chip de clima de la barra superior. */
+async function actualizarClimaTopbar(ciudad) {
+  const chip = document.getElementById("topbar-weather");
+  const clima = await obtenerClimaSimple(ciudad);
+
+  if (clima.error) {
+    chip.innerHTML = '<span aria-hidden="true">⚠️</span><span>Clima no disponible</span>';
+    return;
+  }
+  chip.innerHTML = `
+    <img src="${clima.icono}" alt="" style="width: 24px; height: 24px;" />
+    <span>${clima.temp}°C · ${escaparHTML(ciudad)}</span>
+  `;
+}
+
+/** Configura el selector de ciudad del widget de clima del dashboard. */
+function iniciarWidgetClima() {
+  const select = document.getElementById("weather-city-select");
+
+  let html = "";
+  for (const ciudad of CIUDADES) {
+    html += `<option value="${ciudad}">${ciudad}</option>`;
+  }
+  select.innerHTML = html;
+  select.value = CIUDAD_POR_DEFECTO;
+
+  // Al cambiar la ciudad se actualizan la tarjeta y la barra superior.
+  select.addEventListener("change", function () {
+    pintarClimaDashboard(select.value);
+    actualizarClimaTopbar(select.value);
+  });
+
+  // Botón "Ver clima completo": abre la vista Clima con la ciudad elegida.
+  document.getElementById("btn-weather-full").addEventListener("click", function () {
+    abrirVistaClimaConCiudad(select.value);
+  });
+
+  // El chip de la barra superior también lleva a la vista Clima.
+  document.getElementById("topbar-weather").addEventListener("click", function () {
+    mostrarVista("clima");
+  });
+
+  // Carga inicial.
+  pintarClimaDashboard(CIUDAD_POR_DEFECTO);
+  actualizarClimaTopbar(CIUDAD_POR_DEFECTO);
+}
+
+/* ==================== Búsqueda global ==================== */
+
+/**
+ * La búsqueda de la barra superior filtra rutas Y estudiantes a la vez.
+ * Si el usuario está en el dashboard, lo lleva a la vista de rutas.
+ */
+function iniciarBusquedaGlobal() {
+  const campo = document.getElementById("global-search");
+
+  campo.addEventListener("input", function () {
+    const texto = campo.value;
+
+    // Pasar el texto a los buscadores de cada vista.
+    filtroRutasTexto = texto;
+    document.getElementById("search-routes").value = texto;
+    pintarRutas();
+
+    filtroEstudiantesTexto = texto;
+    document.getElementById("search-students").value = texto;
+    pintarEstudiantes();
+
+    // Si está en el dashboard, mostrar la vista de rutas con los resultados.
+    const enDashboard = !document.getElementById("view-dashboard").hidden;
+    if (texto.trim() !== "" && enDashboard) {
+      mostrarVista("routes");
     }
-    select.value = DEFAULT_CITY;
+  });
+}
 
-    select.addEventListener("change", () => {
-      renderDashboardWeather(select.value);
-      updateTopbarWeather(select.value);
-    });
+/* ==================== Formularios ==================== */
 
-    // Botón "Ver clima completo": abre la vista Clima con la ciudad elegida.
-    document.getElementById("btn-weather-full").addEventListener("click", () => {
-      showView("clima");
-      AppEvents.emit(AppEvents.EVENTS.WEATHER_SEARCH, { ciudad: select.value });
-    });
+/** Llena el <select> de ciudades del formulario de rutas. */
+function llenarSelectCiudades() {
+  const select = document.getElementById("route-city");
 
-    // El chip de la topbar también lleva a la vista Clima.
-    document.getElementById("topbar-weather").addEventListener("click", () => {
-      showView("clima");
-    });
-
-    // Carga inicial del clima.
-    renderDashboardWeather(DEFAULT_CITY);
-    updateTopbarWeather(DEFAULT_CITY);
+  let html = '<option value="">Selecciona una ciudad…</option>';
+  for (const ciudad of CIUDADES) {
+    html += `<option value="${ciudad}">${ciudad}</option>`;
   }
+  select.innerHTML = html;
+}
 
-  /* ==================== Búsqueda global ==================== */
+/* ==================== Eventos globales ==================== */
 
-  /**
-   * La búsqueda global filtra rutas Y estudiantes en tiempo real.
-   * Si el usuario está en el dashboard, lo lleva a la vista de rutas
-   * para que vea los resultados inmediatamente.
-   */
-  function initGlobalSearch() {
-    const input = document.getElementById("global-search");
+function iniciarEventosGlobales() {
+  // Navegación del menú lateral.
+  const enlaces = document.querySelectorAll(".sidebar__link");
+  enlaces.forEach(function (enlace) {
+    enlace.addEventListener("click", function () {
+      mostrarVista(enlace.dataset.view);
+    });
+  });
 
-    input.addEventListener(
-      "input",
-      UI.debounce(() => {
-        const term = input.value;
-        RoutesModule.setSearch(term);
-        StudentsModule.setSearch(term);
+  // Botones "Nueva ruta" y "Nuevo estudiante" (hay varios en la página).
+  const botonesNuevaRuta = document.querySelectorAll('[data-action="new-route"]');
+  botonesNuevaRuta.forEach(function (boton) {
+    boton.addEventListener("click", function () {
+      abrirFormularioRuta(null);
+    });
+  });
 
-        const dashboardVisible = !document.getElementById("view-dashboard").hidden;
-        if (term.trim() && dashboardVisible) showView("routes");
-      })
-    );
+  const botonesNuevoEstudiante = document.querySelectorAll('[data-action="new-student"]');
+  botonesNuevoEstudiante.forEach(function (boton) {
+    boton.addEventListener("click", function () {
+      abrirFormularioEstudiante(null);
+    });
+  });
 
-    // Atajo de teclado "/" para enfocar la búsqueda (UX de SaaS moderno).
-    document.addEventListener("keydown", (event) => {
-      const typingInField = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
-      if (event.key === "/" && !typingInField) {
-        event.preventDefault();
-        input.focus();
+  // Cerrar modales: clic en el fondo oscuro o en los botones de cerrar.
+  const overlays = document.querySelectorAll(".modal-overlay");
+  overlays.forEach(function (overlay) {
+    overlay.addEventListener("click", function (evento) {
+      const clicEnFondo = evento.target === overlay;
+      const clicEnCerrar = evento.target.closest("[data-close-modal]");
+      if (clicEnFondo || clicEnCerrar) {
+        cerrarModal(overlay.id);
       }
     });
-  }
+  });
 
-  /* ==================== Formularios de ciudad ==================== */
-
-  /** Llena el <select> de ciudades del formulario de rutas. */
-  function initCityOptions() {
-    const select = document.getElementById("route-city");
-    select.innerHTML = '<option value="">Selecciona una ciudad…</option>';
-
-    for (const city of StorageService.CITIES) {
-      const option = document.createElement("option");
-      option.value = city;
-      option.textContent = city;
-      select.appendChild(option);
+  // Tecla Escape: cierra modales y el menú móvil.
+  document.addEventListener("keydown", function (evento) {
+    if (evento.key === "Escape") {
+      cerrarTodosLosModales();
+      cerrarMenuMovil();
     }
-  }
+  });
 
-  /* ==================== Eventos globales de UI ==================== */
+  // Menú móvil.
+  document.getElementById("btn-menu").addEventListener("click", abrirMenuMovil);
+  document.getElementById("sidebar-backdrop").addEventListener("click", cerrarMenuMovil);
+}
 
-  function initGlobalListeners() {
-    /* Navegación del sidebar (delegación de eventos). */
-    document.querySelector(".sidebar__nav").addEventListener("click", (event) => {
-      const link = event.target.closest("[data-view]");
-      if (link) showView(link.dataset.view);
-    });
+/* ==================== Refresco general ==================== */
 
-    /* Botones "Nueva ruta" / "Nuevo estudiante" en cualquier vista. */
-    document.addEventListener("click", (event) => {
-      if (event.target.closest('[data-action="new-route"]')) RoutesModule.openForm();
-      if (event.target.closest('[data-action="new-student"]')) StudentsModule.openForm();
-    });
+/**
+ * Vuelve a pintar TODO lo que depende de los datos.
+ * Se llama después de cualquier cambio (crear, editar, eliminar, asignar).
+ */
+function refrescarTodo() {
+  pintarEstadisticas();
+  pintarRutasRecientes();
+  actualizarFiltroCiudades();
+  pintarRutas();
+  actualizarSelectsDeRutas();
+  pintarEstudiantes();
+}
 
-    /* Apertura del detalle desde "Rutas recientes" (delegación). */
-    document.getElementById("recent-routes").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-open-route]");
-      if (button) RoutesModule.openDetail(button.dataset.openRoute);
-    });
+/* ==================== Inicialización ==================== */
 
-    /* Cerrar modales: botones con data-close-modal y clic en el fondo. */
-    document.querySelectorAll(".modal-overlay").forEach((overlay) => {
-      overlay.addEventListener("click", (event) => {
-        // El diálogo de confirmación exige una decisión explícita
-        // (sus botones gestionan el cierre y resuelven la Promesa).
-        if (overlay.id === "modal-confirm") return;
-        if (event.target === overlay || event.target.closest("[data-close-modal]")) {
-          UI.closeModal(overlay.id);
-        }
-      });
-    });
+function iniciarApp() {
+  // 1. Cargar los datos guardados (o crear los de ejemplo).
+  cargarDatos();
 
-    /* Tecla Escape: cierra modales y el menú móvil (accesibilidad). */
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        UI.closeAllModals();
-        closeMobileMenu();
-      }
-    });
+  // 2. Llenar los selects y el widget de clima.
+  llenarSelectCiudades();
+  iniciarWidgetClima();
 
-    /* Menú móvil. */
-    document.getElementById("btn-menu").addEventListener("click", openMobileMenu);
-    document.getElementById("sidebar-backdrop").addEventListener("click", closeMobileMenu);
+  // 3. Conectar los eventos de cada vista.
+  iniciarRutas();
+  iniciarEstudiantes();
+  iniciarClima();
+  iniciarEventosGlobales();
+  iniciarBusquedaGlobal();
 
-    /* El dashboard reacciona automáticamente a CUALQUIER cambio de datos. */
-    AppEvents.on(AppEvents.EVENTS.DATA_CHANGED, () => {
-      renderStats();
-      renderRecentRoutes();
-    });
-  }
+  // 4. Pintar todo y mostrar el dashboard.
+  refrescarTodo();
+  mostrarVista("dashboard");
 
-  /* ==================== Inicialización ==================== */
+  console.info("Rutas Seguras Kids inicializado correctamente.");
+}
 
-  function init() {
-    // 1. Persistencia: datos semilla (solo 1ª vez) + carga del estado.
-    StorageService.seedIfEmpty();
-    AppState.routes = StorageService.loadRoutes();
-    AppState.students = StorageService.loadStudents();
-
-    // 2. Opciones de formularios y widgets.
-    initCityOptions();
-    initWeatherWidget();
-
-    // 3. Módulos de dominio.
-    RoutesModule.init();
-    StudentsModule.init();
-    WeatherView.init();
-
-    // 4. UI global.
-    initGlobalListeners();
-    initGlobalSearch();
-    renderStats();
-    renderRecentRoutes();
-    showView("dashboard");
-
-    console.info("Rutas Seguras Kids inicializado correctamente.");
-  }
-
-  return { init, showView };
-})();
-
-/* Arranque de la aplicación cuando el DOM está listo. */
-document.addEventListener("DOMContentLoaded", App.init);
+// Arranca la aplicación cuando el HTML termina de cargar.
+document.addEventListener("DOMContentLoaded", iniciarApp);
