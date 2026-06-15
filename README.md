@@ -4,9 +4,28 @@ Aplicación frontend profesional construida **exclusivamente con HTML5, CSS3 y J
 
 ## Cómo ejecutar
 
-1. Abre `index.html` directamente en el navegador, o sirve la carpeta con un servidor local (Live Server, `npx serve`, `python -m http.server`).
+1. Abre `index.html` directamente en el navegador, o sirve la carpeta con un servidor local.
 
 La primera ejecución carga datos de ejemplo. Todo cambio se persiste en **LocalStorage** y sobrevive a recargas de página.
+
+##  ================== CAPTURAS =================
+## Panel de control
+<img width="932" height="417" alt="image" src="https://github.com/user-attachments/assets/bcbdde70-aadf-4ff8-a2d0-b6163a4a99cd" />
+
+## Rutas Escolares
+
+<img width="947" height="419" alt="image" src="https://github.com/user-attachments/assets/3642824e-b9e2-4825-a19d-f2f3e5122d12" />
+
+## ESTUDIANTES
+
+<img width="944" height="402" alt="image" src="https://github.com/user-attachments/assets/73c974f6-03de-4c08-9a9e-0b7d02070c19" />
+
+## CLIMA
+
+<img width="949" height="401" alt="image" src="https://github.com/user-attachments/assets/736b12ee-899e-4cc4-8c01-8536a8283688" />
+
+
+
 
 ## Estructura (una sola carpeta)
 
@@ -39,7 +58,6 @@ La primera ejecución carga datos de ejemplo. Todo cambio se persiste en **Local
 ## Características técnicas demostradas
 
 - **Web Components**: `class RouteCard extends HTMLElement` con Shadow DOM, `<template>` y estilos encapsulados.
-- **Custom Events**: `routeCreated`, `routeUpdated`, `routeDeleted`, `studentAssigned`, `studentRemovedFromRoute`, `clima:buscar`… la UI reacciona automáticamente (Pub/Sub sobre el DOM).
 - **Async/Await + Fetch API**: Open-Meteo (geocoding, clima, pronóstico y AQI en paralelo con `Promise.all`), `try/catch`, estados de carga, caché de 10 minutos y manejo de errores.
 - **LocalStorage**: persistencia de rutas, estudiantes y última ciudad consultada.
 - **DOM avanzado**: delegación de eventos, `DocumentFragment`, creación/eliminación dinámica de nodos, filtrado y ordenamiento de colecciones.
